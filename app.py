@@ -187,6 +187,30 @@ def update_llm_config():
     st.toast("LLM provider configuration updated!", icon="⚙️")
 
 
+# Helper to render LLM response content cleanly, checking if it is JSON data or dict
+def render_content(content):
+    import json
+    if not content:
+        return
+    # If it is a dictionary or list, display directly as dataframe
+    if isinstance(content, (dict, list)):
+        st.dataframe(content, use_container_width=True)
+        return
+        
+    # Check if content is stringified JSON
+    if isinstance(content, str):
+        trimmed = content.strip()
+        if (trimmed.startswith("{") and trimmed.endswith("}")) or (trimmed.startswith("[") and trimmed.endswith("]")):
+            try:
+                data_dict = json.loads(content)
+                st.dataframe(data_dict, use_container_width=True)
+                return
+            except Exception:
+                pass
+                
+    st.markdown(content)
+
+
 # --- SIDEBAR: Settings & Configuration ---
 with st.sidebar:
     st.image("https://img.icons8.com/isometric/512/database.png", width=64)
@@ -393,7 +417,7 @@ with col_status2:
 # --- Render Conversational History ---
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+        render_content(msg["content"])
         
         # Render Route Indicator if present
         if "route" in msg:
@@ -413,7 +437,8 @@ for msg in st.session_state.messages:
                 st.code(msg["sql"], language="sql")
                 
         if "dataframe" in msg and msg["dataframe"] is not None:
-            df = pd.read_json(msg["dataframe"])
+            import io
+            df = pd.read_json(io.StringIO(msg["dataframe"]))
             st.markdown("**Query Results:**")
             st.dataframe(df, use_container_width=True)
             
@@ -518,7 +543,8 @@ if user_query := st.chat_input("Ask a question about database metrics or documen
                     assistant_response["dataframe"] = sql_res["dataframe"].to_json()
 
             # Render assistant text response
-            response_container.markdown(assistant_response["content"])
+            with response_container.container():
+                render_content(assistant_response["content"])
             
             # Show sources if any
             if assistant_response["sources"]:
@@ -535,7 +561,8 @@ if user_query := st.chat_input("Ask a question about database metrics or documen
             
             # Show DataFrame and Chart if any
             if assistant_response["dataframe"] is not None:
-                df = pd.read_json(assistant_response["dataframe"])
+                import io
+                df = pd.read_json(io.StringIO(assistant_response["dataframe"]))
                 st.markdown("**Query Results:**")
                 st.dataframe(df, use_container_width=True)
                 
