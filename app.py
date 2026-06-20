@@ -257,8 +257,26 @@ with st.sidebar:
                     df = pd.read_csv(uploaded_csv)
                     
                     # Write schema and data to database
-                    engine = st.session_state.db_engine
-                    df.to_sql(name=table_name.strip(), con=engine, if_exists="replace", index=False)
+                    db_engine = st.session_state.db_engine
+                    table_name = table_name.strip()
+                    
+                    # Ensure your index is named 'id' and starts from 1
+                    df.index = df.index + 1
+                    df.index.name = 'id'
+
+                    # Write the data to SQL with index=True
+                    df.to_sql(
+                        name=table_name, 
+                        con=db_engine, 
+                        if_exists='replace', 
+                        index=True
+                    )
+
+                    # Immediately declare the 'id' column as the PRIMARY KEY
+                    from sqlalchemy import text
+                    with db_engine.connect() as conn:
+                        conn.execute(text(f"ALTER TABLE {table_name} ADD PRIMARY KEY (id);"))
+                        conn.commit()
                     
                     # Re-instantiate DBAgent to immediately detect new table structure
                     active_agent = st.session_state.db_agent
