@@ -96,6 +96,9 @@ def get_llm(temperature: float = 0.0) -> Any:
     
     if settings.LLM_PROVIDER == "anthropic":
         from langchain_anthropic import ChatAnthropic
+        from langchain_groq import ChatGroq
+        import os
+        
         # Try getting from settings first, then st.secrets, then env.
         api_key = settings.ANTHROPIC_API_KEY
         if not api_key:
@@ -107,14 +110,40 @@ def get_llm(temperature: float = 0.0) -> Any:
         if not api_key:
             api_key = os.getenv("ANTHROPIC_API_KEY")
             
-        if not api_key:
-            raise ValueError("ANTHROPIC_API_KEY is not configured.")
+        if api_key and not os.environ.get("ANTHROPIC_API_KEY"):
+            os.environ["ANTHROPIC_API_KEY"] = api_key
+            
+        # Get Groq key if available
+        groq_key = settings.GROQ_API_KEY
+        if not groq_key:
+            try:
+                if "GROQ_API_KEY" in st.secrets:
+                    groq_key = st.secrets["GROQ_API_KEY"]
+            except Exception:
+                pass
+        if not groq_key:
+            groq_key = os.getenv("GROQ_API_KEY")
+            
+        if groq_key and not os.environ.get("GROQ_API_KEY"):
+            os.environ["GROQ_API_KEY"] = groq_key
 
-        return ChatAnthropic(
-            model=settings.ANTHROPIC_MODEL,
-            temperature=temperature,
-            api_key=api_key
-        )
+        if os.environ.get("ANTHROPIC_API_KEY"):
+            # Keep your existing ChatAnthropic setup here exactly as it was written
+            llm = ChatAnthropic(
+                model=settings.ANTHROPIC_MODEL,
+                temperature=temperature,
+                api_key=os.environ.get("ANTHROPIC_API_KEY")
+            )
+        elif os.environ.get("GROQ_API_KEY"):
+            # Fallback cleanly to Groq if the Anthropic key is missing
+            llm = ChatGroq(
+                groq_api_key=os.environ.get("GROQ_API_KEY"),
+                model_name="llama-3.3-70b-versatile"
+            )
+        else:
+            raise ValueError("Neither ANTHROPIC_API_KEY nor GROQ_API_KEY was found in environment variables.")
+            
+        return llm
     elif settings.LLM_PROVIDER == "openai":
         from langchain_openai import ChatOpenAI
         
