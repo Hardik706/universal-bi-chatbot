@@ -260,8 +260,17 @@ with st.sidebar:
                     db_engine = st.session_state.db_engine
                     table_name = table_name.strip()
                     
-                    from sqlalchemy import text
-                    
+                    from sqlalchemy import BigInteger
+                    from sqlalchemy.ext.compiler import compiles
+
+                    # This explicitly defines a primary key type that SQLAlchemy understands
+                    class MySQLPrimaryKeyBigInt(BigInteger):
+                        pass
+
+                    @compiles(MySQLPrimaryKeyBigInt, 'mysql')
+                    def compile_pk_bigint(element, compiler, **kw):
+                        return "BIGINT PRIMARY KEY"
+
                     # 1. Prepare the dataframe index
                     df.index = df.index + 1
                     df.index.name = 'id'
@@ -272,7 +281,7 @@ with st.sidebar:
                         con=db_engine,
                         if_exists='replace',
                         index=True,
-                        dtype={'id': text("BIGINT PRIMARY KEY")}  # This forces MySQL to accept it on creation
+                        dtype={'id': MySQLPrimaryKeyBigInt()}
                     )
                     
                     # Re-instantiate DBAgent to immediately detect new table structure
