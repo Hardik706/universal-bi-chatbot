@@ -12,3 +12,5 @@ python-dotenv
 pandas
 pydantic-settings
 langchain-text-splitters
+langchain-community
+sentence-transformers
