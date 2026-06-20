@@ -260,23 +260,20 @@ with st.sidebar:
                     db_engine = st.session_state.db_engine
                     table_name = table_name.strip()
                     
-                    # Ensure your index is named 'id' and starts from 1
+                    from sqlalchemy import text
+                    
+                    # 1. Prepare the dataframe index
                     df.index = df.index + 1
                     df.index.name = 'id'
 
-                    # Write the data to SQL with index=True
+                    # 2. Force pandas to define 'id' as a PRIMARY KEY during initialization
                     df.to_sql(
-                        name=table_name, 
-                        con=db_engine, 
-                        if_exists='replace', 
-                        index=True
+                        name=table_name,
+                        con=db_engine,
+                        if_exists='replace',
+                        index=True,
+                        dtype={'id': text("BIGINT PRIMARY KEY")}  # This forces MySQL to accept it on creation
                     )
-
-                    # Immediately declare the 'id' column as the PRIMARY KEY
-                    from sqlalchemy import text
-                    with db_engine.connect() as conn:
-                        conn.execute(text(f"ALTER TABLE {table_name} ADD PRIMARY KEY (id);"))
-                        conn.commit()
                     
                     # Re-instantiate DBAgent to immediately detect new table structure
                     active_agent = st.session_state.db_agent
